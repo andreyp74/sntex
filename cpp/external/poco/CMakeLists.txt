@@ -5,15 +5,21 @@ include(ExternalProject)
 ExternalProject_Add(poco
     URL https://github.com/pocoproject/poco/archive/poco-1.7.9-release.zip
     URL_MD5 3228c1c370fa99924cd89afc00242058
-    CMAKE_ARGS -DENABLE_XML:BOOL=ON
+    CMAKE_ARGS -DENABLE_XML:BOOL=OFF
                -DENABLE_JSON:BOOL=ON
+               -DENABLE_UTIL:BOOL=ON
                -DENABLE_MONGODB:BOOL=OFF
-               -DENABLE_DATA_SQLITE:BOOL=OFF
-               -DENABLE_DATA_MYSQL:BOOL=OFF
                -DENABLE_POCODOC:BOOL=OFF
                -DENABLE_TESTS:BOOL=OFF
-               -DENABLE_CRYPTO:BOOL=ON
-               -DENABLE_NETSSL:BOOL=ON
+               -DENABLE_CRYPTO:BOOL=OFF
+               -DENABLE_NETSSL:BOOL=OFF
+               -DENABLE_NET:BOOL=ON
+               -DENABLE_DATA:BOOL=OFF
+               -DENABLE_DATA_SQLITE:BOOL=OFF
+               -DENABLE_DATA_MYSQL:BOOL=OFF
+               -DENABLE_DATA_ODBC:BOOL=OFF
+               -DENABLE_ZIP:BOOL=OFF
+               -DENABLE_CPPPARSER:BOOL=OFF
                -DPOCO_DLL:BOOL=ON
                -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG:PATH=${CMAKE_BINARY_DIR}/Debug
                -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE:PATH=${CMAKE_BINARY_DIR}/Release

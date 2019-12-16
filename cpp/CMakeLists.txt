@@ -67,11 +67,11 @@ enable_testing()
 # ENABLE WITH:  -DBUILD_PRODUCER=ON
 option(BUILD_PRODUCER "Build Producer project" ON)
 if(BUILD_PRODUCER)
-    add_subdirectory(Producer)
+    add_subdirectory(producer)
 endif()
 
 # ENABLE WITH:  -DBUILD_CONSUMER=ON
 option(DBUILD_CONSUMER "Build Consumer project" ON)
 if(DBUILD_CONSUMER)
-    add_subdirectory(Consumer)
+    add_subdirectory(consumer)
 endif()
