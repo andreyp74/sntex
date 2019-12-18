@@ -17,11 +17,11 @@ class ServerConnection: public Poco::Net::TCPServerConnection
 	/// This class handles all client connections.
 {
 public:
-	ServerConnection(const Poco::Net::StreamSocket& s/*args*/): 
+	ServerConnection(const Poco::Net::StreamSocket& s/*args*/):
 		Poco::Net::TCPServerConnection(s)
 	{
 	}
-	
+
 	void run()
 	{
 		Poco::Util::Application& app = Poco::Util::Application::instance();
@@ -36,9 +36,9 @@ public:
 			app.logger().log(exc);
 		}
 	}
-	
+
 private:
-	
+
 };
 
 class ServerConnectionFactory: public Poco::Net::TCPServerConnectionFactory
@@ -47,7 +47,7 @@ public:
 	ServerConnectionFactory(/*args*/)
 	{
 	}
-	
+
 	Poco::Net::TCPServerConnection* createConnection(const Poco::Net::StreamSocket& socket)
 	{
 		return new ServerConnection(socket/*, args*/);
@@ -64,7 +64,7 @@ protected:
 		//loadConfiguration(); // load default configuration files, if present
 		Poco::Util::ServerApplication::initialize(self);
 	}
-		
+
 	void uninitialize()
 	{
 		Poco::Util::ServerApplication::uninitialize();
@@ -73,7 +73,7 @@ protected:
 	void defineOptions(Poco::Util::OptionSet& options)
 	{
 		Poco::Util::ServerApplication::defineOptions(options);
-		
+
 		options.addOption(
 			Poco::Util::Option("help", "h", "display help information on command line arguments")
 				.required(false)
@@ -107,7 +107,7 @@ protected:
 		{
 			// get parameters from configuration file
 			unsigned short port = (unsigned short) config().getInt("Server.port", 9119);
-			
+
 			// set-up a server socket
 			Poco::Net::ServerSocket svs(port);
 			// set-up a TCPServer instance
@@ -124,11 +124,5 @@ protected:
 private:
 	bool helpRequested;
 };
-
-int main(int argc, char** argv)
-{
-	Server app;
-	return app.run(argc, argv);
-}
 
 #endif //SERVER_HPP_
