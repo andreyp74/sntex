@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.2)
 
 project(Consumer CXX C)
 
-include_directories(src "${POCO_INCLUDE_DIRS}")
+include_directories(include src ../common "${POCO_INCLUDE_DIRS}")
 
 file(GLOB_RECURSE CONSUMER_SRCS
          RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}

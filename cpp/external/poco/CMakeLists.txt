@@ -5,7 +5,7 @@ include(ExternalProject)
 ExternalProject_Add(poco
     URL https://github.com/pocoproject/poco/archive/poco-1.7.9-release.zip
     URL_MD5 3228c1c370fa99924cd89afc00242058
-    CMAKE_ARGS -DENABLE_XML:BOOL=OFF
+    CMAKE_ARGS -DENABLE_XML:BOOL=ON
                -DENABLE_JSON:BOOL=ON
                -DENABLE_UTIL:BOOL=ON
                -DENABLE_MONGODB:BOOL=OFF

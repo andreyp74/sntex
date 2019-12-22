@@ -2,12 +2,12 @@ cmake_minimum_required (VERSION 3.2)
 
 project(Producer CXX C)
 
-include_directories(include src "${POCO_INCLUDE_DIRS}")
+include_directories(include src ../common "${POCO_INCLUDE_DIRS}")
 
 file(GLOB_RECURSE PRODUCER_SRCS
          RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
          ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
-         ${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp)
+         ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp)
 
 add_executable(${PROJECT_NAME} ${PRODUCER_SRCS})
 add_dependencies(${PROJECT_NAME} poco g3log)

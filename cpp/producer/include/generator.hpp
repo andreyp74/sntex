@@ -12,11 +12,12 @@
 class Generator
 {
 public:
-    Generator(std::shared_ptr<Storage> storage, int generation_period_ms=20):
+    Generator(std::shared_ptr<Storage> storage, 
+              int generation_period_ms=20):
+              
         storage(storage),
         generation_period_ms(generation_period_ms),
-        done(false),
-        local_thread(&Generator::run, this)
+        done(false)
     {
         std::srand(std::time(nullptr));
     }
@@ -24,6 +25,18 @@ public:
     ~Generator()
     {
         stop();
+    }
+
+    void start()
+    {
+        gen_thread = std::thread(&Generator::run, this);
+    }
+
+    void stop()
+    {
+        done = true;
+        if (gen_thread.joinable())
+            gen_thread.join();
     }
 
     void run()
@@ -38,12 +51,6 @@ public:
         }
     }
 
-    void stop()
-    {
-        done = true;
-        local_thread.join();
-    }
-
 private:
 
     int get_next()
@@ -51,9 +58,12 @@ private:
         return std::rand();
     }
 
+    Generator(Generator&) = delete;
+    Generator& operator=(Generator&) = delete;
+
     std::atomic<bool> done;
     int generation_period_ms;
-    std::thread local_thread;
+    std::thread gen_thread;
     std::shared_ptr<Storage> storage;
 };
 
