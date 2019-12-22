@@ -10,12 +10,14 @@
 class Storage
 {
 public:
+	Storage() = default;
+
     void store(int value)
     {   
         auto start = std::chrono::system_clock::now();
         std::time_t time_point = std::chrono::system_clock::to_time_t(start);
 
-        std::unique_lock lock(mtx);
+        std::unique_lock<std::shared_mutex> lock(mtx);
         data.insert(std::make_pair(time_point, value));
     }
 
@@ -24,7 +26,7 @@ public:
         std::vector<int> result;
 
         {
-            std::shared_lock lock(mtx, std::defer_lock);
+            std::shared_lock<std::shared_mutex> lock(mtx, std::defer_lock);
 
             while(! lock.try_lock())
                 std::this_thread::yield();

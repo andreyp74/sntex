@@ -51,7 +51,7 @@ public:
 				}
 				else
 				{
-					app.logger().information("Requested data from: " + client_req.start_time() + " to " + client_req.end_time());
+					app.logger().information("Requested data from: " + std::to_string(client_req.start_time()) + " to " + std::to_string(client_req.end_time()));
 					std::vector<int> dt = storage->get_data(client_req.start_time(), client_req.end_time());
 					send_response(std::move(dt));
 				}
@@ -67,7 +67,7 @@ public:
 
 private:
 
-	proto::ClientReq receive_request()
+	proto::client::Req receive_request()
 	{
 		std::string request;
 		char buffer[1024];
@@ -81,14 +81,14 @@ private:
 
 		assert(received_bytes == 0);
 
-		return proto::deserialize_req(request);
+		return proto::client::deserialize(request);
 	}
 
 	void send_response(std::vector<int>&& dt)
 	{
-		proto::ServerResp server_resp(std::move(dt));
-		auto buffer = proto::serialize_resp(server_resp);
-		this->socket().sendBytes(buffer.data(), (int) buffer.size());
+		proto::server::Resp response(std::move(dt));
+		auto data = proto::server::serialize(response);
+		this->socket().sendBytes(data.data(), (int) data.size());
 	}
 
 private:
