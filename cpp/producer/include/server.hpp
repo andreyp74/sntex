@@ -44,17 +44,10 @@ public:
 			{	
 				auto client_req = receive_request();
 
-				if (client_req.done())
-				{
-					app.logger().information("Stopping application");
-					return;
-				}
-				else
-				{
-					app.logger().information("Requested data from: " + std::to_string(client_req.start_time()) + " to " + std::to_string(client_req.end_time()));
-					std::vector<int> dt = storage->get_data(client_req.start_time(), client_req.end_time());
-					send_response(std::move(dt));
-				}
+				app.logger().information("Requested data from: " + std::to_string(client_req.start_time()) + " to " + std::to_string(client_req.end_time()));
+				std::vector<int> dt = storage->get_data(client_req.start_time(), client_req.end_time());
+				
+				send_response(std::move(dt));
 			}
 			catch (Poco::Exception& exc)
 			{
@@ -86,9 +79,7 @@ private:
 
 	void send_response(std::vector<int>&& dt)
 	{
-		proto::server::Resp response(std::move(dt));
-		auto data = proto::server::serialize(response);
-		this->socket().sendBytes(data.data(), (int) data.size());
+		this->socket().sendBytes(dt.data(), (int) dt.size());
 	}
 
 private:
