@@ -44,7 +44,8 @@ public:
         while(!done)
         {
             int value = get_next();
-            storage->store(value);
+            int64_t time_point = std::chrono::system_clock::now().time_since_epoch().count();
+            storage->put_data(time_point, value);
 
             std::this_thread::sleep_for(
                 std::chrono::milliseconds(generation_period_ms));

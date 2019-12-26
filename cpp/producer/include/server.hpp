@@ -4,11 +4,15 @@
 #include <atomic>
 #include <memory>
 #include <assert.h>
+#include <iostream>
+#include <iterator> 
+#include <algorithm>
 
 #include "Poco/Net/TCPServer.h"
 #include "Poco/Net/TCPServerConnection.h"
 #include "Poco/Net/TCPServerConnectionFactory.h"
 #include "Poco/Net/StreamSocket.h"
+#include "Poco/Net/SocketStream.h"
 #include "Poco/Net/ServerSocket.h"
 #include "Poco/Exception.h"
 #include "Poco/Util/ServerApplication.h"
@@ -18,36 +22,43 @@
 
 #include "storage.hpp"
 #include "generator.hpp"
-#include "proto.hpp"
 
+using namespace Poco;
+using namespace Poco::Net;
+using namespace Poco::Util;
 
-class ServerConnection: public Poco::Net::TCPServerConnection
+class ServerConnection: public TCPServerConnection
 	/// This class handles all client connections.
 {
 public:
-	ServerConnection(const Poco::Net::StreamSocket& s, 
+	ServerConnection(const StreamSocket& s, 
 		             std::shared_ptr<Storage> storage) : 
-
-		Poco::Net::TCPServerConnection(s),
+		TCPServerConnection(s),
 		storage(storage)
-	{
-	}
+	{}
 
 	void run()
 	{
-		Poco::Util::Application& app = Poco::Util::Application::instance();
-		app.logger().information("Request from " + this->socket().peerAddress().toString());
-
+		Application& app = Application::instance();
+		app.logger().information("Connection from " + this->socket().peerAddress().toString());
+		Timespan timeout(1000000);
 		while(true)
 		{
 			try
 			{	
-				auto client_req = receive_request();
+				app.logger().information("Waiting for request...");
 
-				app.logger().information("Requested data from: " + std::to_string(client_req.start_time()) + " to " + std::to_string(client_req.end_time()));
-				std::vector<int> dt = storage->get_data(client_req.start_time(), client_req.end_time());
-				
-				send_response(std::move(dt));
+				int64_t start_time, end_time;
+				std::tie(start_time, end_time) = recv_time_period();
+
+				app.logger().information("Requested data from: " + std::to_string(start_time) + " to " + std::to_string(end_time));
+				std::vector<int> dt = storage->get_data(start_time, end_time);
+
+				send_data(dt);
+
+				app.logger().information("Sent " + std::to_string(dt.size()) + " items");
+				std::ostream_iterator<int> out_it(std::cout, "\n");
+				std::copy(dt.begin(), dt.end(), out_it);
 			}
 			catch (Poco::Exception& exc)
 			{
@@ -59,42 +70,41 @@ public:
 	}
 
 private:
-
-	proto::client::Req receive_request()
+	std::pair<int64_t, int64_t> recv_time_period()
 	{
-		std::string request;
-		char buffer[1024];
 		int received_bytes = 0;
-		while (! received_bytes)
+		unsigned char buffer[2 * sizeof(int64_t)];
+		do
 		{
-			received_bytes = this->socket().receiveBytes(buffer, sizeof(buffer));
-			if (received_bytes)
-				request.append(buffer, received_bytes);
-		}
+			received_bytes += this->socket().receiveBytes(buffer + received_bytes, sizeof(buffer) - received_bytes);
 
-		assert(received_bytes == 0);
+		} while (received_bytes < 2 * sizeof(int64_t));
 
-		return proto::client::deserialize(request);
+		int64_t start_time = *(int64_t*)buffer;
+		int64_t end_time = *(int64_t*)(buffer + sizeof(int64_t));
+
+		return std::make_pair(start_time, end_time);
 	}
 
-	void send_response(std::vector<int>&& dt)
+	void send_data(const std::vector<int>& dt)
 	{
-		this->socket().sendBytes(dt.data(), (int) dt.size());
+		size_t size = dt.size() * sizeof(int);
+		this->socket().sendBytes(&size, sizeof(size));
+		this->socket().sendBytes(dt.data(), size);
 	}
 
 private:
 	std::shared_ptr<Storage> storage;
 };
 
-class ServerConnectionFactory: public Poco::Net::TCPServerConnectionFactory
+class ServerConnectionFactory: public TCPServerConnectionFactory
 {
 public:
 	ServerConnectionFactory(std::shared_ptr<Storage> storage) : 
 		storage(storage)
-	{
-	}
+	{}
 
-	Poco::Net::TCPServerConnection* createConnection(const Poco::Net::StreamSocket& socket)
+	TCPServerConnection* createConnection(const StreamSocket& socket) override
 	{
 		return new ServerConnection(socket, storage);
 	}
@@ -103,78 +113,40 @@ private:
 	std::shared_ptr<Storage> storage;
 };
 
-class Server: public Poco::Util::ServerApplication
+class Server: public ServerApplication
 {
 protected:
-	void initialize(Poco::Util::Application& self)
+
+	int main(const std::vector<std::string>&)
 	{
-		//loadConfiguration(); // load default configuration files, if present
-		Poco::Util::ServerApplication::initialize(self);
+		std::shared_ptr<Storage> storage = std::make_shared<Storage>();
+		Generator generator(storage);
+		generator.start();
+
+		// get parameters from configuration file
+		unsigned short port = (unsigned short)config().getInt("Server.port", 9191);
+
+		// set-up a server socket
+		ServerSocket svs(port);
+		//svs.setBlocking(false);
+
+		// set-up a TCPServer instance
+		TCPServer srv(new ServerConnectionFactory(storage), svs);
+		// start the TCPServer
+		srv.start();
+
+		std::cout << "Server started on port: " << port << std::endl;
+
+		// wait for CTRL-C or kill
+		waitForTerminationRequest();
+
+		generator.stop();
+
+		// Stop the TCPServer
+		srv.stop();
+		
+		return Application::EXIT_OK;
 	}
-
-	void uninitialize()
-	{
-		Poco::Util::ServerApplication::uninitialize();
-	}
-
-	void defineOptions(Poco::Util::OptionSet& options)
-	{
-		Poco::Util::ServerApplication::defineOptions(options);
-
-		options.addOption(Poco::Util::Option("help", "h", "display help information on command line arguments").required(false).repeatable(false));
-		//options.addOption(Poco::Util::Option("period", "p", "generation period of data").required(true).argumentRequired());
-	}
-
-	void handleOption(const std::string& name, const std::string& value)
-	{
-		Poco::Util::ServerApplication::handleOption(name, value);
-
-		if (name == "help")
-			helpRequested = true;
-	}
-
-	void displayHelp()
-	{
-		Poco::Util::HelpFormatter helpFormatter(options());
-		helpFormatter.setCommand(commandName());
-		helpFormatter.setUsage("OPTIONS");
-		helpFormatter.setHeader("Producer server application");
-		helpFormatter.format(std::cout);
-	}
-
-	int main(const std::vector<std::string>& args)
-	{
-		if (helpRequested)
-		{
-			displayHelp();
-		}
-		else
-		{
-			std::shared_ptr<Storage> storage = std::make_shared<Storage>();
-			Generator generator(storage);
-			generator.start();
-
-			// get parameters from configuration file
-			unsigned short port = (unsigned short) config().getInt("Server.port", 9191);
-
-			// set-up a server socket
-			Poco::Net::ServerSocket svs(port);
-			// set-up a TCPServer instance
-			Poco::Net::TCPServer srv(new ServerConnectionFactory(storage), svs);
-			// start the TCPServer
-			srv.start();
-			// wait for CTRL-C or kill
-			waitForTerminationRequest();
-
-			generator.stop();
-
-			// Stop the TCPServer
-			srv.stop();
-		}
-		return Poco::Util::Application::EXIT_OK;
-	}
-private:
-	bool helpRequested;
 };
 
 #endif //SERVER_HPP_

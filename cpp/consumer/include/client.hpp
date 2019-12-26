@@ -6,14 +6,20 @@
 #include <thread>
 #include <atomic>
 #include <chrono>
+#include <iterator>
 
 #include "Poco/Net/SocketAddress.h"
 #include "Poco/Net/StreamSocket.h"
+#include "Poco/Net/SocketStream.h"
+#include "Poco/StreamCopier.h"
+
+using namespace Poco;
+using namespace Poco::Net;
 
 class Client
 {
 public:
-    Client(const std::string& host, int port):
+    Client(const std::string& host, Poco::UInt16 port):
         socket_addr(host, port), 
         host_(host), 
         port_(port),
@@ -28,8 +34,8 @@ public:
 
     void start()
     {
-        if (! connect())
-            return;
+        while (! connect())
+			std::this_thread::sleep_for(std::chrono::seconds(5));
         client_thread = std::thread(&Client::run, this);
     }
 
@@ -44,15 +50,24 @@ public:
     {
         while(!done)
         {
-            try
-            {
-                exec_round_trip();
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-            }
-            catch(Poco::Exception err)
-            {
-                std::cerr << "Error occurred: " << err.what() << std::endl;
-            }
+			try
+			{
+				int64_t end_time = std::chrono::system_clock::now().time_since_epoch().count();
+				int64_t start_time = end_time - 1 * 1000000;
+				std::cout << "Requesting from " << start_time << " to " << end_time << std::endl;
+				send_time_period(start_time, end_time);
+
+				std::vector<int> dt = recv_data();
+				std::cout << "Received " << dt.size() << " items" << std::endl;
+				std::ostream_iterator<int> out_it(std::cout, "\n");
+				std::copy(dt.begin(), dt.end(), out_it);
+			}
+			catch (Poco::Exception err)
+			{
+				std::cerr << "Error occurred: " << err.what() << std::endl;
+			}
+
+			std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     }
 
@@ -73,44 +88,33 @@ private:
     Client(Client&) = delete;
     Client& operator=(Client&) = delete;
 
-    void exec_round_trip()
-    {
-        std::cout << "Requesting ... " << std::endl;
-        std::vector<std::int64_t> message;
-        message.push_back(3);
-        message.push_back(0);
-        message.push_back(0);
-        //socket.sendBytes(message.data(), (int)message.size()); 
-        socket.sendBytes(message.data(), (int)message.size()); 
+	void send_time_period(int64_t start_time, int64_t end_time)
+	{
+		socket.sendBytes(&start_time, (int)sizeof(start_time));
+		socket.sendBytes(&end_time, (int)sizeof(end_time));
+	}
 
-        std::vector<int> resp;
-		char buffer[1024];
-		int received_bytes = 0;
-
-        received_bytes = socket.receiveBytes(buffer, sizeof(buffer));
-        decltype(resp.size()) size;
-        //read size
-
-		while (! received_bytes)
+	std::vector<int> recv_data()
+	{
+		unsigned char buffer[8096];
+		int received_bytes = socket.receiveBytes(buffer, sizeof(buffer));
+		size_t size = sizeof(size_t) + *(size_t*)&buffer;
+		while (received_bytes < size)
 		{
-			received_bytes = socket.receiveBytes(buffer, sizeof(buffer));
-			if (received_bytes)
-				resp.insert(resp.end(), std::make_move_iterator(buffer), std::make_move_iterator(buffer + received_bytes));
+			received_bytes += socket.receiveBytes(buffer + received_bytes, sizeof(buffer) - received_bytes);
 		}
+		std::vector<int> dt;
+		dt.assign((int*)(buffer + sizeof(size_t)), (int*)(buffer + size));
 
-        std::cout << "Receive values: " << std::endl;
-        for (auto v: resp)
-        {
-            std::cout << v << std::endl;
-        }
-    }
+		return dt;
+	}
 
 private:
     // IP endpoint/socket address (consists of host addr and port #)
-	Poco::Net::SocketAddress socket_addr;
+	SocketAddress socket_addr;
 
 	// Interface to a TCP stream socket
-	Poco::Net::StreamSocket socket;
+	StreamSocket socket;
 
     std::thread client_thread;
 

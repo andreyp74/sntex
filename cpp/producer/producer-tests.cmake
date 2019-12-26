@@ -1,6 +1,6 @@
 ﻿set(PROJECT_TEST_NAME ${PROJECT_NAME}.Test)
 
-include_directories(include src tests "${POCO_INCLUDE_DIRS}")
+include_directories(include src tests "${POCO_INCLUDE_DIRS}" "${GTEST_INCLUDE_DIRS}")
 
 file(GLOB_RECURSE TEST_SRC
          RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -13,25 +13,26 @@ file(GLOB_RECURSE EXTERNAL_SRC
          ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
          ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp)
 
+list(REMOVE_ITEM EXTERNAL_SRC src/main.cpp)
+
 source_group(Sources FILES ${EXTERNAL_SRC})
 source_group(Tests FILES ${TEST_SRC})
 
 add_executable(${PROJECT_TEST_NAME} ${TEST_SRC} ${EXTERNAL_SRC} )
-add_dependencies(${PROJECT_TEST_NAME} poco googletest g3log)
+add_dependencies(${PROJECT_TEST_NAME} poco googletest)
 
-if(MSVC)
-    target_link_libraries(${PROJECT_TEST_NAME} ws2_32 iphlpapi)
-endif(MSVC)
+#if(MSVC)
+#    target_link_libraries(${PROJECT_TEST_NAME} ws2_32 iphlpapi)
+#endif(MSVC)
 
 if(UNIX)
-    target_link_libraries(${PROJECT_TEST_NAME} stdc++fs ${POCO_LIBRARIES})
+    target_link_libraries(${PROJECT_TEST_NAME} ${POCO_LIBRARIES})
 endif(UNIX)
 
 target_link_libraries(
     ${PROJECT_TEST_NAME}
-    ${G3LOG_LIBRARIES}
     ${GTEST_LIBRARIES}
-    ${CMAKE_THREAD_LIBS_INIT}
+    #${CMAKE_THREAD_LIBS_INIT}
 )
 
 set_target_properties(${PROJECT_TEST_NAME}

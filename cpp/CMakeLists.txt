@@ -9,8 +9,6 @@ if( NOT DEFINED CMAKE_BUILD_TYPE )
   message(STATUS "Setting build type - ${CMAKE_BUILD_TYPE}")
 endif()
 
-set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 if(UNIX)
@@ -35,7 +33,7 @@ endif()
 if(UNIX)
     add_definitions(-DNDEBUG)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -std=c99 -Wall -D_DEFAULT_SOURCE")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2 -std=c++14 -lstdc++fs -lrt -lpthread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2 -std=c++14 -lrt -lpthread")
 endif()
 
 #### setup external projects
@@ -43,17 +41,15 @@ set(EXT_PROJECTS_DIR "${PROJECT_SOURCE_DIR}/external")
 
 add_subdirectory("${EXT_PROJECTS_DIR}/poco")
 add_subdirectory("${EXT_PROJECTS_DIR}/gtest")
-add_subdirectory("${EXT_PROJECTS_DIR}/g3log")
 
 include_directories(
     "${POCO_INCLUDE_DIRS}"
-    "${G3LOG_INCLUDE_DIRS}"
     "${GTEST_INCLUDE_DIRS}"
+    "${GMOCK_INCLUDE_DIRS}"
 )
 
 link_directories(
     "${POCO_LIBRARY_DIRS}"
-    "${G3LOG_LIBRARY_DIRS}"
     "${GTEST_LIBRARY_DIRS}"
     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
 )
