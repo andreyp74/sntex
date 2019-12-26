@@ -16,7 +16,7 @@ if(UNIX)
 endif(UNIX)
 
 ### external dependencies
-#find_package(Threads REQUIRED)
+find_package(Threads REQUIRED)
 
 #### compiler-specific options
 if(MSVC)
@@ -54,9 +54,6 @@ link_directories(
     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
 )
 
-#if(WIN32)
-#  link_libraries(ws2_32 psapi iphlpapi shell32 userenv)
-#endif()
 
 enable_testing()
 

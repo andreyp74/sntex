@@ -21,9 +21,6 @@ source_group(Tests FILES ${TEST_SRC})
 add_executable(${PROJECT_TEST_NAME} ${TEST_SRC} ${EXTERNAL_SRC} )
 add_dependencies(${PROJECT_TEST_NAME} poco googletest)
 
-#if(MSVC)
-#    target_link_libraries(${PROJECT_TEST_NAME} ws2_32 iphlpapi)
-#endif(MSVC)
 
 if(UNIX)
     target_link_libraries(${PROJECT_TEST_NAME} ${POCO_LIBRARIES})
@@ -32,7 +29,7 @@ endif(UNIX)
 target_link_libraries(
     ${PROJECT_TEST_NAME}
     ${GTEST_LIBRARIES}
-    #${CMAKE_THREAD_LIBS_INIT}
+    ${CMAKE_THREAD_LIBS_INIT}
 )
 
 set_target_properties(${PROJECT_TEST_NAME}

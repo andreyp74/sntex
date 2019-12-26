@@ -12,17 +12,13 @@ file(GLOB_RECURSE PRODUCER_SRC
 add_executable(${PROJECT_NAME} ${PRODUCER_SRC})
 add_dependencies(${PROJECT_NAME} poco)
 
-#if(MSVC)
-#    target_link_libraries(${PROJECT_NAME} ws2_32 iphlpapi)
-#endif(MSVC)
-
 if(UNIX)
     target_link_libraries(${PROJECT_NAME} ${POCO_LIBRARIES})
 endif(UNIX)
 
 target_link_libraries(
     ${PROJECT_NAME}
-    #${CMAKE_THREAD_LIBS_INIT}
+    ${CMAKE_THREAD_LIBS_INIT}
 )
 
 set_target_properties(${PROJECT_NAME}

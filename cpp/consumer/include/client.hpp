@@ -96,15 +96,17 @@ private:
 
 	std::vector<int> recv_data()
 	{
-		unsigned char buffer[8096];
+		unsigned char buffer[sizeof(size_t)];
 		int received_bytes = socket.receiveBytes(buffer, sizeof(buffer));
-		size_t size = sizeof(size_t) + *(size_t*)&buffer;
+		size_t size = *(size_t*)&buffer;
+
+        std::vector<int> dt;
+        dt.resize(size/sizeof(int));
+        received_bytes = 0;
 		while (received_bytes < size)
 		{
-			received_bytes += socket.receiveBytes(buffer + received_bytes, sizeof(buffer) - received_bytes);
+			received_bytes += socket.receiveBytes(dt.data() + received_bytes, size - received_bytes);
 		}
-		std::vector<int> dt;
-		dt.assign((int*)(buffer + sizeof(size_t)), (int*)(buffer + size));
 
 		return dt;
 	}
