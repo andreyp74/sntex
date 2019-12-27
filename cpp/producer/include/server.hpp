@@ -41,7 +41,6 @@ public:
 	{
 		Application& app = Application::instance();
 		app.logger().information("Connection from " + this->socket().peerAddress().toString());
-		Timespan timeout(1000000);
 		while(true)
 		{
 			try
@@ -120,6 +119,7 @@ protected:
 	int main(const std::vector<std::string>&)
 	{
 		std::shared_ptr<Storage> storage = std::make_shared<Storage>();
+		storage->start();
 		Generator generator(storage);
 		generator.start();
 
