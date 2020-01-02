@@ -29,6 +29,7 @@ public:
 		flush(std::unique_lock<std::mutex>(data_mtx));
 
 		persist_done = true;
+		block_ready.notify_one();
 		if (persist_thread.joinable())
 			persist_thread.join();
 	}
