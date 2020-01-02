@@ -5,125 +5,147 @@
 #include <chrono>
 #include <map>
 #include <mutex>
-#include <shared_mutex>
+#include <mutex>
 #include <thread>
 #include <atomic>
+#include <condition_variable>
+#include <deque>
 
+#include "file_storage.hpp"
 
 class Storage
 {
 public:
 	Storage() :
-		persist_done(false)
-    {
-    }
-
-	~Storage()
+		persist_done(false),
+		block_size(0)
 	{
-		stop();
-	}
-
-	void start()
-	{
+		file_storage = std::make_unique<FileStorage>("./.local/");
 		persist_thread = std::thread(&Storage::persist_run, this);
 	}
 
-	void stop()
+	~Storage()
 	{
+		flush(std::unique_lock<std::mutex>(data_mtx));
+
 		persist_done = true;
 		if (persist_thread.joinable())
 			persist_thread.join();
 	}
 
-    void put_data(int64_t time_point, int value)
-    {   
-        std::unique_lock<std::shared_mutex> lock(mtx);
-        data.insert(std::make_pair(time_point, value));
-    }
-
-    std::vector<int> get_data(int64_t start_time, int64_t end_time) const
-    {
-		std::vector<int> result;
-		data_map_type::const_iterator it_start, it_end;
-        {
-            std::shared_lock<std::shared_mutex> lock(mtx, std::defer_lock);
-
-            while(! lock.try_lock())
-                std::this_thread::yield();
-
-			if (!start_time)
-				it_start = data.begin();
-			else
-			{
-				auto start_erange = data.equal_range(start_time);
-				it_start = start_erange.first;
-				if (std::distance(start_erange.first, start_erange.second) == 0)
-				{
-					int64_t end_time1 = 0;
-					if (start_erange.second != data.end())
-						end_time1 = start_erange.second->first;
-					result = std::move(get_persistent_data(start_time, end_time1));
-				}
-			}
-
-			if (!end_time)
-				it_end = data.end();
-			else
-			{
-				auto end_erange = data.equal_range(end_time);
-				it_end = end_erange.second;
-			}
-
-			for (auto it = it_start; it != it_end; ++it)
-				result.push_back(it->second);
-        }
-
-        return result;
-    }
-
-    void purge()
-    {
-        std::unique_lock<std::shared_mutex> lock(mtx);
-        data.clear();
-    }
-
-protected:
-	void persist_data()
+	void put_data(key_type time_point, value_type value)
 	{
-		
+		std::unique_lock<std::mutex> lock(data_mtx);
+		data.emplace(time_point, value);
+
+		if (++block_size == MAX_BLOCK_SIZE)
+		{
+			block_size = 0;
+			flush(std::move(lock));
+		}
 	}
 
-	std::vector<int> get_persistent_data(int64_t start_time, int64_t end_time) const
+	std::vector<int> get_data(key_type start_point, key_type end_point) const
 	{
-		std::vector<int> result;
+		std::vector<value_type> result;
+		bool is_full_result = true;
+
+		{
+			std::unique_lock<std::mutex> lock(data_mtx);
+			is_full_result = lookup(data, start_point, end_point, result);
+		}
+
+		if (!is_full_result)
+		{
+			std::unique_lock<std::mutex> lock(block_mtx);
+			for (auto& m : block_queue)
+			{
+				is_full_result = lookup(m, start_point, end_point, result);
+				if (is_full_result)
+					break;
+			}
+		}
+
+		if (!is_full_result)
+			file_storage->get_data(start_point, end_point, result);
+
 		return result;
 	}
+
+	void flush(std::unique_lock<std::mutex>&& lock)
+	{
+		data_map_type block;
+		block.swap(data);
+		lock.unlock();
+
+		{
+			std::unique_lock<std::mutex> block_lock(block_mtx);
+			block_queue.push_back(block);
+		}
+		block_ready.notify_one();
+	}
+
+protected:
 
 	void persist_run()
 	{
 		while (!persist_done)
 		{
-			persist_data();
-			std::this_thread::sleep_for(std::chrono::seconds(20));
+			std::unique_lock<std::mutex> lock(block_mtx);
+			block_ready.wait(lock, [this]() { return persist_done || !block_queue.empty(); });
+
+			while (!block_queue.empty())
+			{
+				auto block = block_queue.front();
+				block_queue.pop_front();
+
+				lock.unlock();
+
+				if (!block.empty())
+					file_storage->put_data(std::move(block));
+
+				lock.lock();
+			}
 		}
 	}
 
-	void purge_persistent_data()
-	{
+private:
+	Storage(Storage&) = delete;
+	Storage& operator=(Storage&) = delete;
 
+
+	static bool lookup(const data_map_type& m, key_type start_point, key_type end_point, std::vector<value_type>& result)
+	{
+		bool is_full_result = true;
+
+		auto it_start = m.lower_bound(start_point);
+		auto it_end = m.upper_bound(end_point);
+
+		if (it_start == m.end() || it_start->first > start_point)
+			is_full_result = false;
+
+		for (auto it = it_start; it != it_end; ++it)
+			result.push_back(it->second);
+
+		return is_full_result;
 	}
 
 private:
-    Storage(Storage&) = delete;
-    Storage& operator=(Storage&) = delete;
 
-private:
+	size_t MAX_BLOCK_SIZE = 1024;
 
-    using data_map_type = std::multimap<int64_t, int>;
-    data_map_type data;
-    mutable std::shared_mutex mtx;
-    std::thread persist_thread;
-    std::atomic<bool> persist_done;
+	data_map_type data;
+	mutable std::mutex data_mtx;
+
+	std::unique_ptr<FileStorage> file_storage;
+
+	std::atomic<size_t> block_size;
+	std::condition_variable block_ready;
+	mutable std::mutex block_mtx;
+	std::deque<data_map_type> block_queue;
+
+	std::thread persist_thread;
+	std::atomic<bool> persist_done;
 };
 
 #endif //STORAGE_HPP_

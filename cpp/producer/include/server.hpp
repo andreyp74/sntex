@@ -119,7 +119,6 @@ protected:
 	int main(const std::vector<std::string>&)
 	{
 		std::shared_ptr<Storage> storage = std::make_shared<Storage>();
-		storage->start();
 		Generator generator(storage);
 		generator.start();
 

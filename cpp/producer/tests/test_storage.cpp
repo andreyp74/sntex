@@ -10,7 +10,6 @@ protected:
 
     void SetUp() override
     {
-        storage.purge();
         std::srand((unsigned int)std::time(nullptr));
     }
 
