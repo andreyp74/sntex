@@ -44,7 +44,8 @@ public:
 
 			auto it_start = index.lower_bound(start_point);
 			auto it_end = index.upper_bound(end_point);
-			if (it_start != index.end() && it_start != index.begin() && it_start->first > start_point)
+
+			if (it_start != index.begin() && (it_start == index.end() || it_start->first > start_point))
 				--it_start;
 
 			for (auto it = it_start; it != it_end; ++it)
@@ -66,6 +67,9 @@ public:
 	}
 
 private:
+
+	FileStorage(FileStorage&) = delete;
+	FileStorage& operator=(FileStorage&) = delete;
 
 	std::pair<key_type, std::string> write(data_map_type&& data) const
 	{
