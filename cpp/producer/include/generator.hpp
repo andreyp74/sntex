@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <memory>
+#include <iostream>
 
 #include "storage.hpp"
 
@@ -45,6 +46,7 @@ public:
         {
             int value = get_next();
             int64_t time_point = std::chrono::system_clock::now().time_since_epoch().count();
+			//std::cout << "time_point: " << time_point << " value: " << value << std::endl;
             storage->put_data(time_point, value);
 
             std::this_thread::sleep_for(

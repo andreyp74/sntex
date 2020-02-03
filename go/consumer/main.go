@@ -7,48 +7,54 @@ import (
 	"net"
 	"time"
 	"unsafe"
-
 )
 
+type Request struct {
+	start_time int64
+	end_time   int64
+}
+
 func send_time_period(conn net.Conn, start_time int64, end_time int64) error {
-	st_buf := new(bytes.Buffer)
-	err := binary.Write(st_buf, binary.BigEndian, start_time)
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, binary.LittleEndian, start_time)
 	if err != nil {
 		return err
 	}
-	et_buf := new(bytes.Buffer)
-	err = binary.Write(et_buf, binary.BigEndian, end_time)
+	err = binary.Write(buf, binary.LittleEndian, end_time)
 	if err != nil {
 		return err
 	}
-	_, err = conn.Write(st_buf.Bytes())
+	_, err = conn.Write(buf.Bytes())
 	if err != nil {
 		return err
 	}
-	_, err = conn.Write(et_buf.Bytes())
-	return err
+	return nil
 }
 
 func recv_data(conn net.Conn) (string, error) {
+
 	var size int64
-	bufSize := make([]byte, unsafe.Sizeof(size))
-	_, err := conn.Read(bufSize)
+	buf_size := make([]byte, unsafe.Sizeof(size))
+	r := bytes.NewReader(buf_size)
+
+	_, err := conn.Read(buf_size)
 	if err != nil {
 		return "", err
 	}
 
-	size, err = binary.ReadVarint(bufSize)
+	err = binary.Read(r, binary.LittleEndian, &size)
 	if err != nil {
 		return "", err
 	}
 
-	bufData := make([]byte, size)
-	_, err = conn.Read(bufData)
+	buf_data := make([]byte, size)
+	r = bytes.NewReader(buf_data)
+	_, err = conn.Read(buf_data)
 	if err != nil {
 		return "", err
 	}
 
-	return string(bufData), err
+	return string(buf_data), nil
 }
 
 func main() {
@@ -62,8 +68,8 @@ func main() {
 	fmt.Println("Client connected:", conn.RemoteAddr().String())
 
 	for {
-		start_time := time.Now().UnixNano() / int64(time.Millisecond)
-		end_time := (time.Now().UnixNano() / int64(time.Millisecond)) - 1*1000000
+		end_time := time.Now().UnixNano() / 100
+		start_time := (time.Now().UnixNano() / 100) - 1*1000000
 		fmt.Printf("Requesting from %d to %d\n", start_time, end_time)
 
 		err := send_time_period(conn, start_time, end_time)
