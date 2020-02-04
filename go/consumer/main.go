@@ -6,55 +6,58 @@ import (
 	"fmt"
 	"net"
 	"time"
-	"unsafe"
 )
-
-type Request struct {
-	start_time int64
-	end_time   int64
-}
 
 func send_time_period(conn net.Conn, start_time int64, end_time int64) error {
 	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.LittleEndian, start_time)
-	if err != nil {
+	if err := binary.Write(buf, binary.LittleEndian, start_time); err != nil {
 		return err
 	}
-	err = binary.Write(buf, binary.LittleEndian, end_time)
-	if err != nil {
+	if err := binary.Write(buf, binary.LittleEndian, end_time); err != nil {
 		return err
 	}
-	_, err = conn.Write(buf.Bytes())
-	if err != nil {
+	if _, err := conn.Write(buf.Bytes()); err != nil {
 		return err
 	}
 	return nil
 }
 
-func recv_data(conn net.Conn) (string, error) {
-
-	var size int64
-	buf_size := make([]byte, unsafe.Sizeof(size))
+func recv_message_size(conn net.Conn) (uint32, error) {
+	var size uint32
+	buf_size := make([]byte, 4)
+	if _, err := conn.Read(buf_size); err != nil {
+		return size, err
+	}
 	r := bytes.NewReader(buf_size)
-
-	_, err := conn.Read(buf_size)
-	if err != nil {
-		return "", err
+	if err := binary.Read(r, binary.LittleEndian, &size); err != nil {
+		return size, err
 	}
+	return size, nil
+}
 
-	err = binary.Read(r, binary.LittleEndian, &size)
-	if err != nil {
-		return "", err
-	}
-
+func recv_message(conn net.Conn, size uint32) ([]int32, error) {
 	buf_data := make([]byte, size)
-	r = bytes.NewReader(buf_data)
-	_, err = conn.Read(buf_data)
-	if err != nil {
-		return "", err
+	if _, err := conn.Read(buf_data); err != nil {
+		return nil, err
 	}
+	msg := make([]int32, size/4)
+	r := bytes.NewReader(buf_data)
+	if err := binary.Read(r, binary.LittleEndian, &msg); err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
 
-	return string(buf_data), nil
+func recv_data(conn net.Conn) ([]int32, error) {
+	size, err := recv_message_size(conn)
+	if err != nil {
+		return nil, err
+	}
+	msg, err := recv_message(conn, size)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
 }
 
 func main() {
@@ -81,7 +84,7 @@ func main() {
 		if err != nil {
 			fmt.Println("Receive error: ", err)
 		} else {
-			fmt.Println("Received ", msg)
+			fmt.Printf("Received %d items: %v\n", len(msg), msg)
 		}
 
 		time.Sleep(100 * time.Millisecond)

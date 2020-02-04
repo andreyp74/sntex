@@ -62,10 +62,11 @@ public:
 			catch (Poco::Exception& exc)
 			{
 				app.logger().log(exc);
+				break;
 			}
 		}
 
-		app.logger().information("Connection is closing");
+		app.logger().information("Connection closed");
 	}
 
 private:
