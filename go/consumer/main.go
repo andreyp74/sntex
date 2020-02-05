@@ -78,15 +78,18 @@ func main() {
 		err := send_time_period(conn, start_time, end_time)
 		if err != nil {
 			fmt.Println("Send error: ", err)
+			break
 		}
 
 		msg, err := recv_data(conn)
 		if err != nil {
 			fmt.Println("Receive error: ", err)
+			break
 		} else {
 			fmt.Printf("Received %d items: %v\n", len(msg), msg)
 		}
 
 		time.Sleep(100 * time.Millisecond)
 	}
+	fmt.Println("Connection closed")
 }
