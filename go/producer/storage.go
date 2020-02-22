@@ -1,7 +1,8 @@
-package storage
+package main
 
 import (
 	"sync"
+
 )
 
 type Storage struct {
@@ -9,7 +10,7 @@ type Storage struct {
 	mtx   sync.RWMutex
 }
 
-func New() Storage {
+func NewStorage() Storage {
 	return Storage{items: make(map[int64]int32)}
 }
 

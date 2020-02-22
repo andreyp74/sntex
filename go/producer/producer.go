@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"storage/storage"
+
 )
 
 type TimeRange struct {
@@ -16,7 +16,7 @@ type ServerData struct {
 	Vec []int32
 }
 
-func handleConnection(conn net.Conn, st storage.Storage) {
+func handleConnection(conn net.Conn, st Storage) {
 	remoteAddr := conn.RemoteAddr().String()
 	fmt.Printf("Client connected from %s\n", remoteAddr)
 
@@ -35,11 +35,9 @@ func handleConnection(conn net.Conn, st storage.Storage) {
 		}
 		fmt.Printf("Requested data from: %d to %d\n", timeRange.StartTime, timeRange.EndTime)
 
-		//TODO get value from storage
-		//tmp := []int32{1234, 190575, 1974, 17080302}
-		val, err := st.Get(timeRange.StartTime)
-		if err != nil {
-			fmt.Println("Couldn't retrieve value from storage: ", err)
+		val, ok := st.Get(timeRange.StartTime)
+		if !ok {
+			fmt.Println("Couldn't retrieve value from storage")
 			break
 		}
 		err = encoder.Encode(ServerData{val})
@@ -68,7 +66,7 @@ func main() {
 
 	fmt.Printf("Server strated at %s\n", PORT)
 
-	st := storage.New()
+	st := NewStorage()
 
 	for {
 		conn, err := server.Accept()
