@@ -1,79 +1,39 @@
 package main
 
 import (
-	"encoding/gob"
 	"fmt"
-	"net"
-	"os"
+	"time"
 
 )
 
-type TimeRange struct {
-	StartTime, EndTime int64
+type Producer struct {
+	done bool
+	ch   chan int
 }
 
-type ServerData struct {
-	Vec []int32
+func NewProducer(ch chan int) Producer {
+	producer := Producer{done: false, ch: ch}
+	go producer.run()
+
+	return producer
 }
 
-func handleConnection(conn net.Conn, st Storage) {
-	remoteAddr := conn.RemoteAddr().String()
-	fmt.Printf("Client connected from %s\n", remoteAddr)
+func (prod Producer) Stop() {
+	prod.done = true
+}
 
-	encoder := gob.NewEncoder(conn)
-	decoder := gob.NewDecoder(conn)
-
-	defer conn.Close()
+func (prod Producer) run() {
+	InitGenerator()
 
 	for {
-
-		var timeRange TimeRange
-		err := decoder.Decode(&timeRange)
-		if err != nil {
-			fmt.Printf("Receive error: %s\n", err)
+		if prod.done {
 			break
 		}
-		fmt.Printf("Requested data from: %d to %d\n", timeRange.StartTime, timeRange.EndTime)
 
-		val, ok := st.Get(timeRange.StartTime)
-		if !ok {
-			fmt.Println("Couldn't retrieve value from storage")
-			break
-		}
-		err = encoder.Encode(ServerData{val})
-		if err != nil {
-			fmt.Println("Send error: ", err)
-			break
-		}
-	}
-	fmt.Println("Connection closed")
-}
+		sam := GetNext()
+		prod.ch <- sam
+		fmt.Printf("Sent sample value %v\n", sam)
 
-func main() {
-
-	arguments := os.Args
-	PORT := ":9191"
-	if len(arguments) > 1 {
-		PORT = ":" + arguments[1]
-	}
-
-	server, err := net.Listen("tcp", PORT)
-	if err != nil {
-		fmt.Printf("tcp server listener error: %s\n", err)
-		return
-	}
-	defer server.Close()
-
-	fmt.Printf("Server strated at %s\n", PORT)
-
-	st := NewStorage()
-
-	for {
-		conn, err := server.Accept()
-		if err != nil {
-			fmt.Printf("tcp server accept error: %s\n", err)
-			return
-		}
-		go handleConnection(conn, st)
+		time.Sleep(time.Second)
 	}
 }

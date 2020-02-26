@@ -1,28 +1,43 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 
 )
 
 type Storage struct {
-	items map[int64]int32
+	ch    chan int
+	items []int
 	mtx   sync.RWMutex
 }
 
 func NewStorage() Storage {
-	return Storage{items: make(map[int64]int32)}
+	ch := make(chan int)
+	storage := Storage{ch: ch}
+	go storage.run()
+
+	return storage
 }
 
-func (st Storage) Put(key int64, value int32) {
-	st.mtx.Lock()
-	st.items[key] = value
-	st.mtx.Unlock()
+func (storage Storage) run() {
+	_ = NewProducer(storage.ch)
+	for {
+		sam := <-storage.ch
+		fmt.Printf("Receive value %v\n", sam)
+		storage.Put(sam)
+	}
 }
 
-func (st Storage) Get(key int64) ([]int32, bool) {
-	st.mtx.RLock()
-	value, ok := st.items[key]
-	st.mtx.RUnlock()
-	return []int32{value}, ok
+func (storage Storage) Put(value int) {
+	storage.mtx.Lock()
+	storage.items = append(storage.items, value)
+	storage.mtx.Unlock()
+}
+
+func (storage Storage) Get(nSamples int64) ([]int, bool) {
+	storage.mtx.RLock()
+	sample := storage.items[:nSamples]
+	storage.mtx.RUnlock()
+	return sample, true
 }

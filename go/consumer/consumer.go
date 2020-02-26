@@ -8,12 +8,12 @@ import (
 
 )
 
-type TimeRange struct {
-	StartTime, EndTime int64
+type SampleRange struct {
+	Count int64
 }
 
 type ServerData struct {
-	Vec []int32
+	Vec []int
 }
 
 func main() {
@@ -30,11 +30,11 @@ func main() {
 	fmt.Println("Client connected:", conn.RemoteAddr().String())
 
 	for {
-		endTime := time.Now().UnixNano() / 100
-		startTime := (time.Now().UnixNano() / 100) - 1*1000000
-		fmt.Printf("Requesting from %d to %d\n", startTime, endTime)
+		var nSamples int64
+		nSamples = 5
+		fmt.Printf("Requesting %d samples of data\n", nSamples)
 
-		err := encoder.Encode(TimeRange{startTime, endTime})
+		err := encoder.Encode(SampleRange{Count: nSamples})
 		if err != nil {
 			fmt.Println("Send error: ", err)
 			break
