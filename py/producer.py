@@ -3,78 +3,44 @@ import datetime
 import time
 import threading
 from queue import Queue
+from generator import Generator
+
 
 class Producer:
+    def __init__(self, generation_period_ms=200):
+        self.end = False
 
-    def __init__(self):
-        self.shared_queue = Queue()
-        self.shared_queue_cond = threading.Condition()
+        self.gen = Generator()
+        self.generation_period_ms = generation_period_ms
 
-        self.thread = threading.Thread(name='generator', daemon=True, target=self.generator_task)
+        self.queue = Queue()
+        self.thread = threading.Thread(daemon=True, target=self.run)
         self.thread.start()
 
     def stop(self):
-        self.shared_queue.put(None)
+        self.end = True
+        self.queue.join()
         self.thread.join()
 
-    @staticmethod
-    def generate_item():
-        return str(round(time.time()*1000))
-
-    def generator_task(self):
-        print('Start generator')
-
-        while True:
+    def run(self):
+        print('Start producer')
+        while not self.end:
             try:
-                with self.shared_queue_cond:
+                time.sleep(self.generation_period_ms/1000)
 
-                    #time.sleep(0.1)
-                    time.sleep(1)
+                item = self.gen.new_value()
+                print('Item:', item)
 
-                    item = self.generate_item()
-                    if item is None:
-                        break
-
-                    print('Item:', item)
-                    self.shared_queue.put(item)
-
-                    print('Notify put queue')
-                    self.shared_queue_cond.notifyAll()
+                self.queue.put(item)
 
             except Exception as e:
-                print('Generate task failed:', e)
+                print('Producer task failed:', e)
+
+    def get_value(self):
+        item = self.queue.get(block=True)
+        self.queue.task_done()
+        return item
 
 
-    def get_item(self):
-        try:
-            with self.shared_queue_cond:
-
-                while self.shared_queue.empty():
-                    print('Queue is empty. Waiting for data...')
-                    self.shared_queue.wait()
-                else:
-                    print('Queue is not empty')
-                    item = self.shared_queue.get_nowait()
-                    print('Got item', item)
-
-                self.queue.task_done()
-
-        except Exception as e:
-            print('Get items failed:', e)
 
 
-def main():
-    producer = Producer()
-    
-    while True:
-        s = input("Press Enter to continue...\n>")
-        if s == 'quit':
-            break    
-
-        item = producer.get_item()
-        print('Receive:', item)
-    
-    producer.stop()
-
-if __name__ == "__main__":
-    main()
